@@ -7,6 +7,7 @@
 #include "Utils/HostUtils.h"
 #include "Utils/DeviceUtils.h"
 #include "tools/TimerClock.h"
+#include "tools/BenchMark.h"
 #include "Constants.h"
 // This is a personal academic project. Dear PVS-Studio, please check it.
 
@@ -24,6 +25,10 @@ class LinearSolver
 public:
 	LinearSolver(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
 	LinearSolver(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
+
+	LinearSolver(CSR&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);         // 使用移动构造函数代替拷贝构造函数
+	LinearSolver(COO&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);         // 使用移动构造函数代替拷贝构造函数
+
 	virtual ~LinearSolver();
 	virtual void start();
 
@@ -42,7 +47,8 @@ protected:
 
 	uint32 m_MaxIter;           // 最大迭代次数
 	uint32 m_Iter;              // 实际迭代次数
-	double m_Residual;          // 最小残差
+	double m_MinResidual;       // 最小残差
+	double m_Residual;          // 实际残差
 	uint32 m_Dimension;         // 维度
 
 	TimerClock m_TC;            // 计时器
@@ -51,7 +57,7 @@ protected:
 
 
 LinearSolver::LinearSolver(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
-	: m_DataCSR(data), m_X(x), m_B(b), m_Dimension(dimension), m_MaxIter(maxIter), m_Residual(residual), m_DataCOO()
+	: m_DataCSR(data), m_X(x), m_B(b), m_Dimension(dimension), m_MaxIter(maxIter), m_MinResidual(residual), m_Residual(0.0), m_DataCOO()
 {
 	m_Time = 0.0;
 	m_Iter = m_MaxIter;         // 初始化为最大迭代次数
@@ -60,35 +66,36 @@ LinearSolver::LinearSolver(CSR& data, double* x, double* b, uint32 dimension, ui
 
 
 LinearSolver::LinearSolver(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
-	: m_DataCOO(data), m_X(x), m_B(b), m_Dimension(dimension), m_MaxIter(maxIter), m_Residual(residual), m_DataCSR()
+	: m_DataCOO(data), m_X(x), m_B(b), m_Dimension(dimension), m_MaxIter(maxIter), m_MinResidual(residual), m_Residual(0.0), m_DataCSR()
 {
 	m_Time = 0.0;
 	m_Iter = 0;
 	m_SF = COOFORMAT;
 }
 
+
+LinearSolver::LinearSolver(CSR&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
+	: m_DataCSR(std::move(data)), m_X(x), m_B(b), m_Dimension(dimension), m_MaxIter(maxIter), m_MinResidual(residual), m_Residual(0.0), m_DataCOO()
+{
+	m_Time = 0.0;
+	m_Iter = m_MaxIter;
+	m_SF = CSRFORMAT;
+}
+
+
 // 这里会两次调用CSR的析构函数
 LinearSolver::~LinearSolver()
 {
 	m_X = nullptr;
 	m_B = nullptr;
-
-	if (m_SF == CSRFORMAT)
-	{
-		delete[] m_DataCSR.m_Data;
-		delete[] m_DataCSR.m_Col;
-		delete[] m_DataCSR.m_Fnz;
-	}
-	else if (m_SF == COOFORMAT)
-	{
-		delete[] m_DataCOO.m_Data;
-		delete[] m_DataCOO.m_Col;
-		delete[] m_DataCOO.m_Row;
-	}
 }
 
 void LinearSolver::start()
 {
+#if TIME_TEST
+	Timer tc("total");
+#endif
+
 	m_TC.update();
 
 	calculate();
@@ -118,6 +125,10 @@ class P_LinearSolver : public LinearSolver
 public:
 	P_LinearSolver(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
 	P_LinearSolver(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
+
+	P_LinearSolver(CSR&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);           // 使用移动构造函数代替拷贝构造函数
+	P_LinearSolver(COO&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);           // 使用移动构造函数代替拷贝构造函数
+
 	~P_LinearSolver();
 
 	void start() override;
@@ -130,11 +141,11 @@ protected:
 	void destory();
 
 protected:
-	CSR m_DeviceDataCSR;
-	COO m_DeviceDataCOO;
+	DeviceCSR m_DeviceDataCSR;
+	DeviceCOO m_DeviceDataCOO;
 
 	double* m_DeviceX;
-	double* m_DeviveB;
+	double* m_DeviceB;
 
 	dim3 m_DimGridMatMutil;           // 矩阵*向量的线程块数
 	dim3 m_DimBlockMatMutil;          // 矩阵*向量每个线程块的线程数
@@ -150,12 +161,8 @@ protected:
 
 
 P_LinearSolver::P_LinearSolver(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
-	: LinearSolver(data, x, b, dimension, maxIter, residual)
+	: LinearSolver(data, x, b, dimension, maxIter, residual), m_DeviceDataCSR(), m_DeviceDataCOO(), m_DeviceX(nullptr), m_DeviceB(nullptr)
 {
-	m_DeviceDataCSR.m_Data = nullptr;
-	m_DeviceDataCSR.m_Col = nullptr;
-	m_DeviceDataCSR.m_Fnz = nullptr;
-
 	uint32 warpNumPerBlock = THREADS_MATMUTIL / WARP_SIZE;      // 计算出每个线程块的warp数量
 	uint32 linePerBlock = warpNumPerBlock * ELEMS_MATMUTIL;     // 计算出每个线程块处理的行数
 
@@ -175,12 +182,32 @@ P_LinearSolver::P_LinearSolver(CSR& data, double* x, double* b, uint32 dimension
 
 
 P_LinearSolver::P_LinearSolver(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
-	: LinearSolver(data, x, b, dimension, maxIter, residual)
+	: LinearSolver(data, x, b, dimension, maxIter, residual), m_DeviceDataCSR(), m_DeviceDataCOO(), m_DeviceX(nullptr), m_DeviceB(nullptr)
 {
-	m_DeviceDataCOO.m_Data = nullptr;
-	m_DeviceDataCOO.m_Col = nullptr;
-	m_DeviceDataCOO.m_Row = nullptr;
+     // 等待完善
 }
+
+
+P_LinearSolver::P_LinearSolver(CSR&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
+	: LinearSolver(std::move(data), x, b, dimension, maxIter, residual), m_DeviceDataCSR(), m_DeviceDataCOO(), m_DeviceX(nullptr), m_DeviceB(nullptr)
+{
+	uint32 warpNumPerBlock = THREADS_MATMUTIL / WARP_SIZE;      // 计算出每个线程块的warp数量
+	uint32 linePerBlock = warpNumPerBlock * ELEMS_MATMUTIL;     // 计算出每个线程块处理的行数
+
+	m_DimGridMatMutil = dim3((m_Dimension - 1) / linePerBlock + 1, 1, 1);
+	m_DimBlockMatMutil = dim3(THREADS_MATMUTIL, 1, 1);
+
+	uint32 elemsPerBlock = THREADS_VECADD * ELEMS_VECADD;
+
+	m_DimGridVecAdd = dim3((m_Dimension - 1) / elemsPerBlock + 1, 1, 1);
+	m_DimBlockVecAdd = dim3(THREADS_VECADD, 1, 1);
+
+	elemsPerBlock = THREADS_VECMUTIL * ELEMS_VECMUTIL;           // 每个线程块处理的元素数量
+
+	m_DimGridVecMutil = dim3((m_Dimension - 1) / elemsPerBlock + 1, 1, 1);
+	m_DimBlockVecMutil = dim3(THREADS_VECMUTIL, 1, 1);
+}
+
 
 P_LinearSolver::~P_LinearSolver()
 {
@@ -190,6 +217,9 @@ P_LinearSolver::~P_LinearSolver()
 
 void P_LinearSolver::start()
 {
+#if TIME_TEST
+	Timer tc("total");
+#endif
 
 	m_TC.update();
 
@@ -210,6 +240,10 @@ void P_LinearSolver::calculate()
 
 void P_LinearSolver::memcpyHostToDevice()
 {
+#if TIME_TEST
+	Timer tc("HtoD");
+#endif
+
 	// 数据量大的时候可以考虑使用异步拷贝
 	cudaError_t error;
 	if (m_SF == CSRFORMAT)
@@ -262,18 +296,22 @@ void P_LinearSolver::memcpyHostToDevice()
 	error = cudaMalloc((void**)&m_DeviceX, m_Dimension * sizeof(double));
 	checkCudaError(error, "m_DeviceX malloc");
 
-	error = cudaMalloc((void**)&m_DeviveB, m_Dimension * sizeof(double));
+	error = cudaMalloc((void**)&m_DeviceB, m_Dimension * sizeof(double));
 	checkCudaError(error, "m_DeviceB malloc");
 
 	error = cudaMemcpy((void*)m_DeviceX, m_X, m_Dimension * sizeof(double), cudaMemcpyHostToDevice);
 	checkCudaError(error, "m_DeviceX memcpy");
 
-	error = cudaMemcpy((void*)m_DeviveB, m_B, m_Dimension * sizeof(double), cudaMemcpyHostToDevice);
+	error = cudaMemcpy((void*)m_DeviceB, m_B, m_Dimension * sizeof(double), cudaMemcpyHostToDevice);
 	checkCudaError(error, "m_DeviceB memcpy");
 }
 
 void P_LinearSolver::memcpyDeviceToHost()
 {
+#if TIME_TEST
+	Timer tc("DtoH");
+#endif
+
 	cudaError_t error;
 	error = cudaMemcpy((void*)m_X, m_DeviceX, m_Dimension * sizeof(double), cudaMemcpyDeviceToHost);
 	checkCudaError(error, "m_X memcpy");
@@ -308,6 +346,6 @@ void P_LinearSolver::destory()
 	error = cudaFree(m_DeviceX);
 	checkCudaError(error, "m_DeviceX free");
 
-	error = cudaFree(m_DeviveB);
+	error = cudaFree(m_DeviceB);
 	checkCudaError(error, "m_DeviveB free");
 }

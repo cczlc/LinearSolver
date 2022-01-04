@@ -8,6 +8,9 @@ public:
 	P_CG(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
 	P_CG(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
 
+	P_CG(CSR&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
+	P_CG(COO&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
+
 protected:
 	void calculate() override;
 };
@@ -19,133 +22,15 @@ P_CG::P_CG(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, do
 P_CG::P_CG(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
 	: P_LinearSolver(data, x, b, dimension, maxIter, residual) {}
 
-
-//void P_CG::calculate()
-//{
-//	double* deviceAp = nullptr;
-//	double* deviceR = nullptr;
-//	double* deviceP = nullptr;            // p代表方向
-//	double* deviceNewR = nullptr;
-//	double* pAp = nullptr;
-//	double* rr = nullptr;
-//	double* newRnewR = nullptr;
-//	bool* exitFlag = nullptr;
-//	bool* deviceExitFlag = nullptr;
-//
-//	cudaError_t error;
-//	error = cudaMalloc((void**)&deviceAp, m_Dimension * sizeof(double));
-//	checkCudaError(error, "deviceAp malloc");
-//	error = cudaMalloc((void**)&deviceR, m_Dimension * sizeof(double));
-//	checkCudaError(error, "deviceR malloc");
-//	error = cudaMalloc((void**)&deviceP, m_Dimension * sizeof(double));
-//	checkCudaError(error, "deviceP malloc");
-//	error = cudaMalloc((void**)&deviceNewR, m_Dimension * sizeof(double));
-//	checkCudaError(error, "newR malloc");
-//	error = cudaMalloc((void**)&pAp, sizeof(double));
-//	checkCudaError(error, "pAp malloc");
-//	error = cudaMalloc((void**)&rr, sizeof(double));
-//	checkCudaError(error, "rr malloc");
-//	error = cudaMalloc((void**)&newRnewR, sizeof(double));
-//	checkCudaError(error, "newRnewR malloc");
-//
-//	// 启用零复制
-//	cudaSetDeviceFlags(cudaDeviceMapHost);
-//	cudaHostAlloc((void**)&exitFlag, sizeof(bool), cudaHostAllocWriteCombined | cudaHostAllocMapped);
-//	checkCudaError(error, "cudaHostAlloc data");
-//	cudaHostGetDevicePointer(&deviceExitFlag, exitFlag, 0);
-//
-//	*exitFlag = false;
-//
-//	// Ax
-//	runMat_Mutil_Vec_Kernel(m_DeviceDataCSR, m_DeviceX, deviceAp);
-//
-//	// r = b-Ax
-//	runVec_Add_Vec_Kernel(m_DeviveB, deviceAp, deviceR, m_Dimension, false);
-//
-//	// p = r（初始化方向为负的梯度方向）
-//	error = cudaMemcpy((void*)deviceP, deviceR, m_Dimension * sizeof(double), cudaMemcpyDeviceToDevice);
-//	checkCudaError(error, "deviceP memcpy");
-//
-//	for (uint32 i = 0; i < m_MaxIter; ++i)
-//	{
-//		//TimerClock tc;
-//		//tc.update();
-//		// Ap
-//		runMat_Mutil_Vec_Kernel(m_DeviceDataCSR, deviceP, deviceAp);
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//		//tc.update();
-//
-//		// pAp
-//		runVec_Mutil_Vec_Kernel(deviceP, deviceAp, pAp, m_Dimension);                // 1
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//		//tc.update();
-//
-//		// rr
-//		runVec_Mutil_Vec_Judge_Kernel(deviceR, deviceR, rr, m_Residual, deviceExitFlag, m_Dimension);                  // 2
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//		//tc.update();
-//
-//		// 在这里有个判断退出的条件
-//		if (*exitFlag)
-//		{
-//			m_Iter = i;
-//			std::cout << m_Iter << std::endl;
-//			break;
-//		}
-//
-//		// x = x + alpha * p
-//		runVec_Add_Vec_Kernel(m_DeviceX, deviceP, rr, pAp, m_DeviceX, m_Dimension, true);
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//		//tc.update();
-//
-//		// newR = r - alpha * Ap
-//		runVec_Add_Vec_Kernel(deviceR, deviceAp, rr, pAp, deviceNewR, m_Dimension, false);
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//		//tc.update();
-//
-//		// newRnewR
-//		runVec_Mutil_Vec_Kernel(deviceNewR, deviceNewR, newRnewR, m_Dimension);       // 3
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//		//tc.update();
-//
-//		// p = r + beta * p
-//		runVec_Add_Vec_Kernel(deviceNewR, deviceP, newRnewR, rr, deviceP, m_Dimension, true);
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//		//tc.update();
-//
-//		// 感觉在数据量较大时，交换指针比数据拷贝更快（有待验证）
-//		double* temp = deviceR;
-//		deviceR = deviceNewR;
-//		deviceNewR = temp;
-//
-//		//error = cudaMemcpy((void*)deviceR, deviceNewR, m_Dimension * sizeof(double), cudaMemcpyDeviceToDevice);
-//		//checkCudaError(error, "deviceR memcpy");
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//
-//		//std::cout << tc.getMilliSecond() << "ms" << std::endl;
-//		//std::cout << std::endl;
-//	}
-//
-//	error = cudaFree(deviceAp);
-//	checkCudaError(error, "deviceAp free");
-//	error = cudaFree(deviceR);
-//	checkCudaError(error, "deviceR free");
-//	error = cudaFree(deviceP);
-//	checkCudaError(error, "deviceP free");
-//	error = cudaFree(deviceNewR);
-//	checkCudaError(error, "deviceNewR free");
-//	error = cudaFree(pAp);
-//	checkCudaError(error, "pAp free");
-//	error = cudaFree(rr);
-//	checkCudaError(error, "rr free");
-//	error = cudaFree(newRnewR);
-//	checkCudaError(error, "newRnewR free");
-//	error = cudaFreeHost(exitFlag);
-//	checkCudaError(error, "exitFlag free");
-//}
+P_CG::P_CG(CSR&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
+	: P_LinearSolver(std::move(data), x, b, dimension, maxIter, residual) {}
 
 void P_CG::calculate()
 {
+#if TIME_TEST
+	Timer tc("calculate");
+#endif
+
 	double* deviceAp = nullptr;
 	double* deviceR = nullptr;
 	double* deviceP = nullptr;            // p代表方向
@@ -187,7 +72,7 @@ void P_CG::calculate()
 	checkCudaError(error, "Ax Kernel");
 
 	// r = b-Ax
-	Vector_Sub_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << <m_DimGridVecAdd, m_DimBlockVecAdd >> > (m_DeviveB, deviceAp, deviceR, m_Dimension);
+	Vector_Sub_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << <m_DimGridVecAdd, m_DimBlockVecAdd >> > (m_DeviceB, deviceAp, deviceR, m_Dimension);
 	cudaDeviceSynchronize();
 	error = cudaGetLastError();
 	checkCudaError(error, "r = b-Ax Kernel");
@@ -233,7 +118,7 @@ void P_CG::calculate()
 		//tc.update();
 
 		// x = x + alpha * p
-		CG::Vector_Add_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << <m_DimGridVecAdd, m_DimBlockVecAdd >> > (m_DeviceX, deviceP, rr, pAp, m_DeviceX, m_Residual, deviceExitFlag, m_Dimension);
+		CG::Vector_Add_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << <m_DimGridVecAdd, m_DimBlockVecAdd >> > (m_DeviceX, deviceP, rr, pAp, m_DeviceX, m_MinResidual, deviceExitFlag, m_Dimension);
 		//cudaDeviceSynchronize();
 		//error = cudaGetLastError();
 		//checkCudaError(error, " x + alpha * p Kernel");
@@ -280,6 +165,9 @@ void P_CG::calculate()
 		// 判断退出的条件
 		if (*exitFlag)
 		{
+			cudaMemcpy((void*)&m_Residual, rr, sizeof(double), cudaMemcpyDeviceToHost);
+			m_Residual /= m_Dimension;
+			std::cout << "residual: " << m_Residual << std::endl;
 			m_Iter = i;
 			break;
 		}

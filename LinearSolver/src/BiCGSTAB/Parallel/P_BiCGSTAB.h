@@ -8,10 +8,14 @@ public:
 	P_BiCGSTAB(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
 	P_BiCGSTAB(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
 
+	P_BiCGSTAB(CSR&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
+	P_BiCGSTAB(COO&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual);
+
 protected:
 	void calculate() override;
 };
 
+// 这里是不是不需要这样显式地写？
 P_BiCGSTAB::P_BiCGSTAB(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
 	: P_LinearSolver(data, x, b, dimension, maxIter, residual) {}
 
@@ -19,8 +23,19 @@ P_BiCGSTAB::P_BiCGSTAB(CSR& data, double* x, double* b, uint32 dimension, uint32
 P_BiCGSTAB::P_BiCGSTAB(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
 	: P_LinearSolver(data, x, b, dimension, maxIter, residual) {}
 
+
+P_BiCGSTAB::P_BiCGSTAB(CSR&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
+	: P_LinearSolver(std::move(data), x, b, dimension, maxIter, residual) {}
+
+//P_BiCGSTAB::P_BiCGSTAB(COO&& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
+//	: P_LinearSolver(std::move(data), x, b, dimension, maxIter, residual) {}
+
 void P_BiCGSTAB::calculate()
 {
+#if TIME_TEST
+	Timer tc("calculate");
+#endif
+
 	double* deviceAx = nullptr;
 	double* deviceR = nullptr;
 	double* deviceR0 = nullptr;
@@ -94,7 +109,7 @@ void P_BiCGSTAB::calculate()
 	Matrix_multi_Vector_Kernel<THREADS_MATMUTIL> << <m_DimGridMatMutil, m_DimBlockMatMutil >> > (m_DeviceDataCSR, m_DeviceX, deviceAx);
 
 	// r - Ax
-	Vector_Sub_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << < m_DimGridVecAdd, m_DimBlockVecAdd >> > (m_DeviveB, deviceAx, deviceR, m_Dimension);
+	Vector_Sub_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << < m_DimGridVecAdd, m_DimBlockVecAdd >> > (m_DeviceB, deviceAx, deviceR, m_Dimension);
 
 	// r0_hat = r
 	error = cudaMemcpy((void*)deviceR0, deviceR, m_Dimension * sizeof(double), cudaMemcpyDeviceToDevice);
@@ -131,7 +146,7 @@ void P_BiCGSTAB::calculate()
 		Vector_mutil_Vector_Kernel<THREADS_VECMUTIL, ELEMS_VECMUTIL> << <m_DimGridVecMutil, m_DimBlockVecMutil >> > (deviceR, deviceR, deviceRr, m_Dimension);
 
 		// p = r + beta(p - w * v)
-		BICGSTAB::Vector_Add_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << <m_DimGridVecAdd, m_DimBlockVecAdd >> > (deviceR, deviceV, deviceRho1, deviceRho0, deviceAlpha, deviceW, deviceP, deviceRr, deviceExitFlag, m_Residual, m_Dimension);
+		BICGSTAB::Vector_Add_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << <m_DimGridVecAdd, m_DimBlockVecAdd >> > (deviceR, deviceV, deviceRho1, deviceRho0, deviceAlpha, deviceW, deviceP, deviceRr, deviceExitFlag, m_MinResidual, m_Dimension);
 
 		//double* resultHost = new double[m_Dimension];
 		//error = cudaMemcpy((void*)resultHost, deviceP, m_Dimension * sizeof(double), cudaMemcpyDeviceToHost);
@@ -268,6 +283,9 @@ void P_BiCGSTAB::calculate()
 
 		if (*exitFlag)
 		{
+			cudaMemcpy((void*)&m_Residual, deviceRr, sizeof(double), cudaMemcpyDeviceToHost);
+			m_Residual /= m_Dimension;
+			std::cout << "residual: " << m_Residual << std::endl;
 			m_Iter = i;
 			break;
 		}

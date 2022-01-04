@@ -8,3 +8,5 @@
 
 #define THREADS_VECADD 512
 #define ELEMS_VECADD 1
+
+#define TIME_TEST 1

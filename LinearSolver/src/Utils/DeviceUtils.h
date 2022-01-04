@@ -116,7 +116,7 @@ inline __device__ void calcDataBlockLength(unsigned& offset, unsigned& dataBlock
 // 这对于一行中有超过非零值的矩阵较好，否则会出现很多线程实际上并没有工作！
 // 可以通过修改WARP_SIZE改善这一情况
 template <uint32 threadsMatMutil>
-__global__ void Matrix_multi_Vector_Kernel(CSR matrix, double* vector, double* result)
+__global__ void Matrix_multi_Vector_Kernel(DeviceCSR matrix, double* vector, double* result)
 {
 	// 创建共享缓存
 	__shared__ double scanTile[threadsMatMutil * 2];                                      // 大小为两倍的线程数
@@ -154,7 +154,7 @@ __global__ void Matrix_multi_Vector_Kernel(CSR matrix, double* vector, double* r
 // 每个线程处理一个或多个元素（可以保证所有的线程都处于活跃状态）
 // 在使用之间要将result初始化为0
 template <uint32 threadsMatMutil, uint32 elemsMatMutil>
-__global__ void Matrix_multi_Vector_Kernel(COO matrix, double* vector, double* result)
+__global__ void Matrix_multi_Vector_Kernel(DeviceCOO matrix, double* vector, double* result)
 {
 	uint32 offset, dataBlockLength;
 	calcDataBlockLength<threadsMatMutil, elemsMatMutil>(offset, dataBlockLength, matrix.m_ArrayLength);

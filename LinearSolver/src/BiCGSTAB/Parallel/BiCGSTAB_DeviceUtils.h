@@ -10,6 +10,7 @@ namespace BICGSTAB
 	__global__ void Vector_Add_Vector_Kernel(double* vector1, double* vector2, double* rho1, double* rho0, double* alpha, double* w, double* result, double* rr, bool* exitFlag, double tol, uint32 arrayLength)
 	{
 		uint32 tid = blockDim.x * blockIdx.x + threadIdx.x;
+
 		if (tid == 0 && (*rr / arrayLength) <= tol)
 		{
 			*exitFlag = true;

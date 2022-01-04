@@ -43,11 +43,11 @@ void Vector_Sub_Vector(double* vector1, double* vector2, double* result, uint32 
 
 double maxnorm(uint32 arrayLength, double* r)
 {
-	double temp = abs(r[0]);
+	double temp = 0.0;
 	for (uint32 i = 1; i < arrayLength; ++i)
-		if (temp < abs(r[i]))
-			temp = abs(r[i]);
-	return temp;
+		temp += r[i] * r[i];
+
+	return temp / arrayLength;
 }
 
 void checkCudaError(cudaError_t error, const std::string& errmsg)

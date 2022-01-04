@@ -18,7 +18,11 @@ S_CG::S_CG(CSR& data, double* x, double* b, uint32 dimension, uint32 maxIter, do
 S_CG::S_CG(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
 	: LinearSolver(data, x, b, dimension, maxIter, residual) {}
 
-void S_CG::calculate() {
+void S_CG::calculate() 
+{
+#if TIME_TEST
+	Timer tc("calculate");
+#endif
 
 	double* r = new double[m_Dimension];
 	double* ap = new double[m_Dimension];
@@ -68,7 +72,7 @@ void S_CG::calculate() {
 			newR[i] = r[i] - alpha * ap[i];
 		}
 
-		if ((maxnorm(m_Dimension, r) <= m_Residual))
+		if ((maxnorm(m_Dimension, r) <= m_MinResidual))
 		{
 			m_Iter = i;
 			break;

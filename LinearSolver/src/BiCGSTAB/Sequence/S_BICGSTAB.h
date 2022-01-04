@@ -20,6 +20,10 @@ S_BICGSTAB::S_BICGSTAB(COO& data, double* x, double* b, uint32 dimension, uint32
 
 void S_BICGSTAB::calculate()
 {
+#if TIME_TEST
+	Timer tc("calculate");
+#endif
+
 	double* r = new double[m_Dimension];
 	double* r0_hat = new double[m_Dimension];
 	double* ax = new double[m_Dimension];
@@ -51,7 +55,7 @@ void S_BICGSTAB::calculate()
 	// 没有应用预处理技术
 	for(uint32 i = 0; i < m_MaxIter; ++i)
 	{
-		if (maxnorm(m_Dimension, r) <= m_Residual)
+		if (maxnorm(m_Dimension, r) <= m_MinResidual)
 		{
 			m_Iter = i;
 			break;
@@ -90,11 +94,11 @@ void S_BICGSTAB::calculate()
 
 		rho1 = Vector_mutil_Vector(r0_hat, r, m_Dimension);
 
-		for (uint32 i = 0; i < m_Dimension; i+= 1000)
-		{
-			std::cout << m_X[i] << " ";
-		}
-		std::cout << std::endl;
+		//for (uint32 i = 0; i < m_Dimension; i+= 1000)
+		//{
+		//	std::cout << m_X[i] << " ";
+		//}
+		//std::cout << std::endl;
 	}
 
 	delete[] r;
