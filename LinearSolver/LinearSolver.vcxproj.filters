@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="BiCGSTAB">
+      <UniqueIdentifier>{8476CC98-7043-27A4-995C-154C85885C32}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BiCGSTAB\Parallel">
+      <UniqueIdentifier>{00C8E4A5-6CDE-E23B-B555-6E5D21ABB3C3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BiCGSTAB\Sequence">
+      <UniqueIdentifier>{AC2CA49D-1843-A233-61BA-2D55CD0F73BB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CG">
+      <UniqueIdentifier>{2F735900-1BFF-870B-84AD-880B7058880B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CG\Parallel">
+      <UniqueIdentifier>{0B35DC64-77EA-545A-00DF-4E316C934B5E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CG\Sequence">
+      <UniqueIdentifier>{B7999B5C-234F-1452-AC43-0E2918F80A56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utils">
+      <UniqueIdentifier>{F68B420E-62A0-6ABF-2B22-0E1F97F566F0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tools">
+      <UniqueIdentifier>{36DF7010-A2F3-98C1-6B75-3C21D74895F2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\BiCGSTAB\Parallel\BiCGSTAB_DeviceUtils.h">
+      <Filter>BiCGSTAB\Parallel</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BiCGSTAB\Parallel\P_BiCGSTAB.h">
+      <Filter>BiCGSTAB\Parallel</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BiCGSTAB\Sequence\S_BICGSTAB.h">
+      <Filter>BiCGSTAB\Sequence</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CG\Parallel\CG_DeviceUtils.h">
+      <Filter>CG\Parallel</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CG\Parallel\P_CG.h">
+      <Filter>CG\Parallel</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CG\Sequence\S_CG.h">
+      <Filter>CG\Sequence</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Constants.h" />
+    <ClInclude Include="src\DataGenration.h" />
+    <ClInclude Include="src\LinearSolver.h" />
+    <ClInclude Include="src\LinearSolverPara.h" />
+    <ClInclude Include="src\MatFormat.h" />
+    <ClInclude Include="src\Typedef.h" />
+    <ClInclude Include="src\Utils\DeviceUtils.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utils\HostUtils.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tools\TimerClock.h">
+      <Filter>tools</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tools\BenchMark.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\tools\TimerClock.cpp">
+      <Filter>tools</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\main.cu" />
+  </ItemGroup>
+</Project>
