@@ -137,7 +137,7 @@ __global__ void Matrix_multi_Vector_Kernel(DeviceCSR matrix, double* vector, dou
 
 		for (uint32 col = laneId; col < numPerRow; col += WARP_SIZE)
 		{
-			localValue += matrix.m_Data[tempOffset + col] * vector[matrix.m_Col[tempOffset + col]];          // 这样写好像不能跨行
+			localValue += matrix.m_Data[tempOffset + col] * vector[matrix.m_Col[tempOffset + col]];
 		}
 
 		WarpValue = intraWarpScanMat(scanTile, localValue) + localValue;

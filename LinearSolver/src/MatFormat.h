@@ -94,7 +94,6 @@ CSR::CSR(const CSR& csr)
 	memcpy(m_Fnz, csr.m_Fnz, (m_Dimension + 1) * sizeof(uint32));
 }
 
-
 // ¿½±´¸³ÖµÔËËã·û
 CSR& CSR::operator=(const CSR& csr)
 {

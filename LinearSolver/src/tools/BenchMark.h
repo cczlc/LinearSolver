@@ -179,8 +179,6 @@ namespace BenchMark
     }
 }
 
-
-
 void test()
 {
     Instrumentor::Get().BeginSession("Profile");

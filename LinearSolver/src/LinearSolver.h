@@ -31,6 +31,7 @@ public:
 
 	virtual ~LinearSolver();
 	virtual void start();
+	virtual void test();
 
 	double getTime() const;
 	uint32 getIter() const;
@@ -104,6 +105,58 @@ void LinearSolver::start()
 
 }
 
+void LinearSolver::test()
+{
+	double* resultMat = nullptr;
+
+	//{
+	//	Timer tc("Matrix_multi_Vector");
+	//	Matrix_multi_Vector(m_DataCSR, m_X, resultMat);
+
+	//	extern double sequence[5000];
+	//	for (uint32 i = 0; i < m_Dimension; ++i)
+	//	{
+	//		sequence[i] = resultMat[i];
+	//		std::cout << resultMat[i] << " ";
+	//	}
+	//	std::cout << std::endl;
+	//	std::cout << std::endl;
+	//	std::cout << std::endl;
+	//}
+
+
+	//{
+	//	Timer tc("Vector_mutil_Vector");
+	//	double resultVecMul = Vector_mutil_Vector(m_X, m_X, m_Dimension);
+
+	//	std::cout << resultVecMul << std::endl;
+	//	std::cout << std::endl;
+	//	std::cout << std::endl;
+	//}
+
+	{
+		Timer tc("memory malloc");
+		resultMat = new double[m_Dimension];
+	}
+
+	{
+		Timer tc("Vector_Add_Vector");
+		Vector_Add_Vector(m_X, m_X, resultMat, m_Dimension);
+
+		//extern double sequence[5000];
+		//for (uint32 i = 0; i < m_Dimension; ++i)
+		//{
+		//	//sequence[i] = resultMat[i];
+		//	std::cout << resultMat[i] << " ";
+		//}
+		//std::cout << std::endl;
+		//std::cout << std::endl;
+		//std::cout << std::endl;
+	}
+
+	delete[] resultMat;
+}
+
 double LinearSolver::getTime() const
 {
 	return m_Time;
@@ -132,6 +185,7 @@ public:
 	~P_LinearSolver();
 
 	void start() override;
+	void test() override;
 
 
 protected:
@@ -184,7 +238,7 @@ P_LinearSolver::P_LinearSolver(CSR& data, double* x, double* b, uint32 dimension
 P_LinearSolver::P_LinearSolver(COO& data, double* x, double* b, uint32 dimension, uint32 maxIter, double residual)
 	: LinearSolver(data, x, b, dimension, maxIter, residual), m_DeviceDataCSR(), m_DeviceDataCOO(), m_DeviceX(nullptr), m_DeviceB(nullptr)
 {
-     // 等待完善
+	// 等待完善
 }
 
 
@@ -232,6 +286,125 @@ void P_LinearSolver::start()
 	m_Time = m_TC.getSecond();
 
 }
+
+
+void P_LinearSolver::test()
+{
+	constexpr uint32 TEST = 3;
+
+	cudaError_t error;
+
+#if TEST == 1
+
+	Timer tc("Matrix_multi_Vector_Kernel");
+
+	error = cudaMalloc((void**)&m_DeviceDataCSR.m_Data, m_DataCSR.m_ArrayLength * sizeof(*m_DeviceDataCSR.m_Data));
+	checkCudaError(error, "m_DeviceDataCSR.m_Data malloc");
+
+	error = cudaMalloc((void**)&m_DeviceDataCSR.m_Col, m_DataCSR.m_ArrayLength * sizeof(*m_DeviceDataCSR.m_Col));
+	checkCudaError(error, "m_DeviceDataCSR.m_Col malloc");
+
+	error = cudaMalloc((void**)&m_DeviceDataCSR.m_Fnz, (m_DataCSR.m_Dimension + 1) * sizeof(*m_DeviceDataCSR.m_Fnz));
+	checkCudaError(error, "m_DeviceDataCSR.m_Fnz malloc");
+
+	error = cudaMemcpy((void*)m_DeviceDataCSR.m_Data, m_DataCSR.m_Data, m_DataCSR.m_ArrayLength * sizeof(*m_DeviceDataCSR.m_Data), cudaMemcpyHostToDevice);
+	checkCudaError(error, "m_DeviceDataCSR.m_Data memcpy");
+
+	error = cudaMemcpy((void*)m_DeviceDataCSR.m_Col, m_DataCSR.m_Col, m_DataCSR.m_ArrayLength * sizeof(*m_DeviceDataCSR.m_Col), cudaMemcpyHostToDevice);
+	checkCudaError(error, "m_DeviceDataCSR.m_Col memcpy");
+
+	error = cudaMemcpy((void*)m_DeviceDataCSR.m_Fnz, m_DataCSR.m_Fnz, (m_DataCSR.m_Dimension + 1) * sizeof(*m_DeviceDataCSR.m_Fnz), cudaMemcpyHostToDevice);
+	checkCudaError(error, "m_DeviceDataCSR.m_Fnz memcpy");
+
+	m_DeviceDataCSR.m_ArrayLength = m_DataCSR.m_ArrayLength;
+	m_DeviceDataCSR.m_Dimension = m_DataCSR.m_Dimension;
+
+	error = cudaMalloc((void**)&m_DeviceX, m_Dimension * sizeof(double));
+	checkCudaError(error, "m_DeviceX malloc");
+
+	error = cudaMemcpy((void*)m_DeviceX, m_X, m_Dimension * sizeof(double), cudaMemcpyHostToDevice);
+	checkCudaError(error, "m_DeviceX memcpy");
+
+	double* deviceResult = nullptr;
+	error = cudaMalloc((void**)&deviceResult, m_Dimension * sizeof(double));
+	checkCudaError(error, "deviceResult malloc");
+
+	Matrix_multi_Vector_Kernel<THREADS_MATMUTIL> << <m_DimGridMatMutil, m_DimBlockMatMutil >> > (m_DeviceDataCSR, m_DeviceX, deviceResult);
+
+	error = cudaMemcpy((void*)result, deviceResult, m_Dimension * sizeof(double), cudaMemcpyDeviceToDevice);
+	checkCudaError(error, "result memcpy");
+
+#elif TEST == 2
+
+	Timer tc("Vector_mutil_Vector_Kernel");
+
+	double* deviceResult = nullptr;
+	error = cudaMalloc((void**)&deviceResult, m_Dimension * sizeof(double));
+	checkCudaError(error, "deviceResult malloc");
+
+	error = cudaMalloc((void**)&m_DeviceX, m_Dimension * sizeof(double));
+	checkCudaError(error, "m_DeviceX malloc");
+
+	error = cudaMemcpy((void*)m_DeviceX, m_X, m_Dimension * sizeof(double), cudaMemcpyHostToDevice);
+	checkCudaError(error, "m_DeviceX memcpy");
+
+	Vector_mutil_Vector_Kernel<THREADS_VECMUTIL, ELEMS_VECMUTIL> << <m_DimGridVecMutil, m_DimBlockVecMutil >> > (m_DeviceX, m_DeviceX, deviceResult, m_Dimension);
+
+	error = cudaMemcpy((void*)result2, deviceResult, sizeof(double), cudaMemcpyDeviceToHost);
+	checkCudaError(error, "result2 memcpy");
+
+#else 
+
+	Timer tc("Vector_Add_Vector_Kernel");
+	double* deviceResult = nullptr;
+	double* result = nullptr;
+
+	{
+		Timer tc("memory malloc");
+		result = new double[m_Dimension];
+
+		error = cudaMalloc((void**)&deviceResult, m_Dimension * sizeof(double));
+		checkCudaError(error, "deviceResult malloc");
+
+		error = cudaMalloc((void**)&m_DeviceX, m_Dimension * sizeof(double));
+		checkCudaError(error, "m_DeviceX malloc");
+
+		error = cudaMalloc((void**)&m_DeviceB, m_Dimension * sizeof(double));
+		checkCudaError(error, "m_DeviceB malloc");
+	} 
+
+	{
+
+		Timer tc("cpu-gpu");
+
+		error = cudaMemcpy((void*)m_DeviceX, m_X, m_Dimension * sizeof(double), cudaMemcpyHostToDevice);
+		checkCudaError(error, "m_DeviceX memcpy");
+
+		error = cudaMemcpy((void*)m_DeviceB, m_B, m_Dimension * sizeof(double), cudaMemcpyHostToDevice);
+		checkCudaError(error, "m_DeviceB memcpy");
+	}
+
+	{
+		Timer tc("calculate");
+		Vector_Add_Vector_Kernel<THREADS_VECADD, ELEMS_VECADD> << <m_DimGridVecAdd, m_DimBlockVecAdd >> > (m_DeviceB, m_DeviceX, deviceResult, m_Dimension);
+		cudaDeviceSynchronize();
+	}
+
+	{
+		Timer tc("gpu-cpu");
+		error = cudaMemcpy((void*)result, deviceResult, m_Dimension * sizeof(double), cudaMemcpyDeviceToHost);
+		checkCudaError(error, "result memcpy");
+	}
+
+	//extern double parallel[5000];
+	//for (uint32 i = 0; i < m_Dimension; ++i)
+	//{
+	//	std::cout << result[i] << " ";
+	//}
+
+#endif
+}
+
 
 void P_LinearSolver::calculate()
 {
