@@ -173,7 +173,14 @@ CSR::~CSR()
 }
 
 
-
+struct DeviceCOO
+{
+public:
+	double* m_Data;           // 矩阵的非零元素值
+	uint32* m_Row;            // 每个元素的行坐标
+	uint32* m_Col;            // 每个元素的列坐标
+	uint32 m_ArrayLength;    // 存放数据长度
+};
 
 class COO
 {
@@ -185,12 +192,4 @@ public:
 };
 
 
-struct DeviceCOO
-{
-public:
-	double* m_Data;           // 矩阵的非零元素值
-	uint32* m_Row;            // 每个元素的行坐标
-	uint32* m_Col;            // 每个元素的列坐标
-	uint32 m_ArrayLength;    // 存放数据长度
-};
 

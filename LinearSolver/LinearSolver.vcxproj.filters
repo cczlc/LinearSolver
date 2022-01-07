@@ -57,10 +57,12 @@
     <ClInclude Include="src\Utils\HostUtils.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="src\tools\BenchMark.h">
+      <Filter>tools</Filter>
+    </ClInclude>
     <ClInclude Include="src\tools\TimerClock.h">
       <Filter>tools</Filter>
     </ClInclude>
-    <ClInclude Include="src\tools\BenchMark.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\tools\TimerClock.cpp">

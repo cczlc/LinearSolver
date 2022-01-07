@@ -11,7 +11,6 @@ workspace "LinearSolver"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
-
 project "LinearSolver"
     location "LinearSolver"     -- 定义项目生成位置
     kind "ConsoleApp"
@@ -23,7 +22,7 @@ project "LinearSolver"
     files
     {
         "%{prj.name}/src/**.h",
-        "%{prj.name}/src/**.cpp",
+        "%{prj.name}/src/**.cpp"
     }
 
     buildcustomizations "BuildCustomizations/CUDA 11.4"

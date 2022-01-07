@@ -120,10 +120,10 @@
     <ClInclude Include="src\LinearSolver.h" />
     <ClInclude Include="src\LinearSolverPara.h" />
     <ClInclude Include="src\MatFormat.h" />
-    <ClInclude Include="src\tools\BenchMark.h" />
     <ClInclude Include="src\Typedef.h" />
     <ClInclude Include="src\Utils\DeviceUtils.h" />
     <ClInclude Include="src\Utils\HostUtils.h" />
+    <ClInclude Include="src\tools\BenchMark.h" />
     <ClInclude Include="src\tools\TimerClock.h" />
   </ItemGroup>
   <ItemGroup>

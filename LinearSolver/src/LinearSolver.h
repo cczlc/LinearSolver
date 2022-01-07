@@ -18,8 +18,6 @@
 
 #include "MatFormat.h"
 
-
-
 class LinearSolver
 {
 public:
